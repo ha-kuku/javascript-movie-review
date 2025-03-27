@@ -198,7 +198,7 @@ button.primary {
 
 .detail-button {
   width: 1280px;
-  height: 49px;
+  height: 50px;
   font-family: Montserrat;
   font-weight: 600;
   font-size: 24px;
@@ -324,7 +324,6 @@ span.rate-value {
 .main-title {
   margin: 64px 80px 0 80px;
   color: #fff;
-  font-family: Poppins;
   font-size: 36px;
   font-style: normal;
   font-weight: 600;
@@ -344,7 +343,6 @@ span.rate-value {
   margin: 36px 0;
   font-size: 1.4rem;
   font-weight: bold;
-  font-family: Poppins;
   font-weight: 600;
   line-height: 100%;
   letter-spacing: 0%;
@@ -458,4 +456,31 @@ p.rate > span {
 .item .star {
   width: 16px;
   top: 1px;
+}
+.skeleton {
+  background: linear-gradient(90deg, #ccc 25%, #ddd 50%, #ccc 75%);
+  background-size: 200% 100%;
+  animation: loading 1.5s infinite linear;
+}
+
+@keyframes loading {
+  0% {
+    background-position: 100% 0;
+  }
+  100% {
+    background-position: -100% 0;
+  }
+}
+
+.skeleton-img {
+  width: 100%;
+  height: 300px;
+  border-radius: 8px;
+}
+
+.skeleton-text {
+  width: 80%;
+  height: 16px;
+  margin: 8px 0;
+  border-radius: 4px;
 }
