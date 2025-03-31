@@ -186,13 +186,43 @@ const Input = ({ type, placeholder, onSearch }) => {
   searchInput == null ? void 0 : searchInput.addEventListener("keydown", handleKeyDown);
   return searchWrapper;
 };
-const Button = ({ text, onClick }) => {
-  const detailButton = document.createElement("button");
-  detailButton.classList.add("detail-button", "primary");
-  detailButton.textContent = text;
-  detailButton.addEventListener("click", onClick);
-  return detailButton;
+const createModal = () => {
+  const modalBackground = document.createElement("div");
+  modalBackground.classList.add("modal-background");
+  const modal2 = document.createElement("div");
+  modal2.classList.add("modal");
+  const closeButton = document.createElement("button");
+  closeButton.classList.add("close-modal");
+  closeButton.innerHTML = `<img src="images/modal_button_close.png" />`;
+  closeButton.addEventListener("click", () => {
+    modalBackground.classList.remove("active");
+    document.body.classList.remove("modal-open");
+  });
+  modalBackground.addEventListener("click", (event) => {
+    if (event.target === modalBackground) {
+      modalBackground.classList.remove("active");
+      document.body.classList.remove("modal-open");
+    }
+  });
+  modal2.appendChild(closeButton);
+  modalBackground.appendChild(modal2);
+  document.body.appendChild(modalBackground);
+  return {
+    show: () => {
+      modalBackground.classList.add("active");
+      document.body.classList.add("modal-open");
+    },
+    hide: () => {
+      modalBackground.classList.remove("active");
+      document.body.classList.remove("modal-open");
+    },
+    setContent: (content) => {
+      modal2.innerHTML = content;
+      modal2.prepend(closeButton);
+    }
+  };
 };
+const modal = createModal();
 const MovieItem = ({ title, voteAverage, posterPath }) => {
   const movieItem = document.createElement("li");
   movieItem.classList.add("movie-item");
@@ -213,17 +243,37 @@ const MovieItem = ({ title, voteAverage, posterPath }) => {
     img.src = "images/nullImage.png";
   };
   img.onload = () => {
+    var _a, _b;
     movieItem.innerHTML = `
-    <div class="item">
-      <img class="thumbnail" src="${img.src}" alt="${title}" />
-      <div class="item-desc">
-        <p class="rate">
-          <img src="images/star_empty.png" class="star" /><span>${voteAverage}</span>
-        </p>
-        <strong>${title}</strong>
+      <div class="item">
+        <img class="thumbnail" src="${img.src}" alt="${title}" />
+        <div class="item-desc">
+          <p class="rate">
+            <img src="images/star_empty.png" class="star" /><span>${voteAverage}</span>
+          </p>
+          <strong class="movie-title">${title}</strong>
+        </div>
       </div>
-    </div>
-  `;
+    `;
+    const openModal = () => {
+      modal.setContent(`
+        <div class="modal-container">
+          <div class="modal-image">
+            <img src="${img.src}" alt="${title}" />
+          </div>
+          <div class="modal-description">
+            <h2>${title}</h2>
+            <p class="rate">
+              <img src="images/star_filled.png" class="star" />
+              <span>${voteAverage}</span>
+            </p>
+          </div>
+        </div>
+      `);
+      modal.show();
+    };
+    (_a = movieItem.querySelector(".thumbnail")) == null ? void 0 : _a.addEventListener("click", openModal);
+    (_b = movieItem.querySelector(".movie-title")) == null ? void 0 : _b.addEventListener("click", openModal);
   };
   return movieItem;
 };
@@ -274,8 +324,7 @@ const MovieContainer = ({ $movieContainer }) => {
 function handleSearch({
   $title,
   $mostPopularMovieBanner,
-  renderMovieContainer,
-  $moreButton
+  renderMovieContainer
 }) {
   return async (query) => {
     try {
@@ -287,11 +336,6 @@ function handleSearch({
       await fetchSearchedMovies(query);
       renderMovieContainer();
       $title.textContent = `"${query}" 검색 결과`;
-      if (searchedMovieList.list.length === 0) {
-        $moreButton.style.display = "none";
-      } else {
-        $moreButton.style.display = "block";
-      }
     } catch (error) {
       console.error("검색 영화 호출 중 오류 발생:", error);
       alert("검색 중 오류가 발생했습니다.");
@@ -313,35 +357,13 @@ document.addEventListener("DOMContentLoaded", async () => {
   $title.classList.add("main-title");
   $title.textContent = "지금 인기 있는 영화";
   const { renderMovieContainer } = MovieContainer({ $movieContainer: $main });
-  const $moreButton = Button({
-    text: "더 보기",
-    onClick: async () => {
-      const mode = movieState.mode;
-      const isLast = isLastPage(mode);
-      if (isLast) {
-        $moreButton.style.display = "none";
-        alert("마지막 페이지입니다.");
-      } else {
-        if (mode === "popular") {
-          await fetchPopularMovies(popularMovieList.currentPage + 1);
-        } else if (mode === "search") {
-          await fetchSearchedMovies(
-            movieState.query,
-            searchedMovieList.currentPage + 1
-          );
-        }
-        renderMovieContainer();
-      }
-    }
-  });
   const $input = Input({
     type: "text",
     placeholder: "검색어를 입력하세요",
     onSearch: handleSearch({
       $title,
       $mostPopularMovieBanner,
-      renderMovieContainer,
-      $moreButton
+      renderMovieContainer
     })
   });
   const $navigationBar = NavigationBar({
@@ -366,7 +388,23 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
   const $container = document.querySelector(".container");
   if (!$container) return;
-  if (!isLastPage(movieState.mode)) {
-    $container.appendChild($moreButton);
-  }
+  window.addEventListener("scroll", async () => {
+    const { scrollHeight, scrollTop, clientHeight } = document.documentElement;
+    if (scrollHeight - scrollTop - clientHeight < 10) {
+      const mode = movieState.mode;
+      const isLast = isLastPage(mode);
+      if (isLast) {
+        return;
+      }
+      if (mode === "popular") {
+        await fetchPopularMovies(popularMovieList.currentPage + 1);
+      } else if (mode === "search") {
+        await fetchSearchedMovies(
+          movieState.query,
+          searchedMovieList.currentPage + 1
+        );
+      }
+      renderMovieContainer();
+    }
+  });
 });
