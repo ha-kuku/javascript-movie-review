@@ -46,6 +46,7 @@ const defaultOptions = {
   }
 };
 const fetchMovies = (apiUrl = popularApiUrl) => {
+  console.log(apiUrl);
   return fetch(apiUrl, defaultOptions).then((res) => {
     if (!res.ok) {
       throw new Error(`HTTP error! status: ${res.status}`);
@@ -61,7 +62,9 @@ const mapToMovie = (apiData) => ({
   id: apiData.id,
   title: apiData.title,
   voteAverage: apiData.vote_average,
-  posterPath: apiData.poster_path
+  posterPath: apiData.poster_path,
+  genres: apiData.genres,
+  overview: apiData.overview
 });
 const popularMovieList = {
   list: [],
@@ -117,6 +120,12 @@ const fetchSearchedMovies = async (searchQuery, page = 1) => {
     throw error;
   }
 };
+const fetchDetailMovie = async (movie_id) => {
+  const url = `https://api.themoviedb.org/3/movie/${movie_id}?language=ko-KR`;
+  console.log(url);
+  const data = await fetchMovies(url);
+  return data;
+};
 const movieState = {
   mode: "popular",
   query: ""
@@ -134,7 +143,7 @@ const MostPopularMovieBanner = () => {
       <div class="top-rated-movie">
         <div class="rate">
           <img src="images/star_empty.png" class="star" />
-          <span class="rate-value">${movie == null ? void 0 : movie.voteAverage}</span>
+          <span class="rate-value">${movie == null ? void 0 : movie.voteAverage.toFixed(1)}</span>
         </div>
         <div class="title">${movie == null ? void 0 : movie.title}</div>
         <button class="primary detail">자세히 보기</button>
@@ -186,44 +195,185 @@ const Input = ({ type, placeholder, onSearch }) => {
   searchInput == null ? void 0 : searchInput.addEventListener("keydown", handleKeyDown);
   return searchWrapper;
 };
+const getLocalStorage = (key, defaultValue) => {
+  const localStorageItem = localStorage.getItem(key);
+  if (localStorageItem === null) {
+    localStorage.setItem(key, JSON.stringify(defaultValue));
+    return defaultValue;
+  }
+  return JSON.parse(localStorageItem);
+};
+const setLocalStorage = (key, value) => {
+  localStorage.setItem(key, JSON.stringify(value));
+};
+const STAR_RATE_STORAGE_ID = "starRateStorageId";
+const setMovieStarRate = (id, starRate) => {
+  const starRateStorage = getLocalStorage(
+    STAR_RATE_STORAGE_ID,
+    {}
+  );
+  setLocalStorage(STAR_RATE_STORAGE_ID, {
+    ...starRateStorage,
+    [id]: starRate
+  });
+};
+const getStarRateByMovieId = (id) => {
+  if (JSON.parse(localStorage.getItem(STAR_RATE_STORAGE_ID) ?? "{}")[id] === void 0) {
+    setMovieStarRate(id, 0);
+  }
+  const starRateStorage = getLocalStorage(
+    STAR_RATE_STORAGE_ID,
+    {}
+  );
+  return starRateStorage[String(id)];
+};
+const StarRateMessage = {
+  MESSAGE_OF_STAR_RATE_2: "최악이예요",
+  MESSAGE_OF_STAR_RATE_4: "별로예요",
+  MESSAGE_OF_STAR_RATE_6: "보통이에요",
+  MESSAGE_OF_STAR_RATE_8: "재미있어요",
+  MESSAGE_OF_STAR_RATE_10: "명작이에요"
+};
+const getStarRateMessage = (starRate) => {
+  switch (starRate) {
+    case 2:
+      return StarRateMessage["MESSAGE_OF_STAR_RATE_2"];
+    case 4:
+      return StarRateMessage["MESSAGE_OF_STAR_RATE_4"];
+    case 6:
+      return StarRateMessage["MESSAGE_OF_STAR_RATE_6"];
+    case 8:
+      return StarRateMessage["MESSAGE_OF_STAR_RATE_8"];
+    case 10:
+      return StarRateMessage["MESSAGE_OF_STAR_RATE_10"];
+    default:
+      return "";
+  }
+};
 const createModal = () => {
   const modalBackground = document.createElement("div");
   modalBackground.classList.add("modal-background");
-  const modal2 = document.createElement("div");
-  modal2.classList.add("modal");
+  const modal = document.createElement("div");
+  modal.classList.add("modal");
+  const modalContent = document.createElement("div");
+  modalContent.classList.add("modal-content");
   const closeButton = document.createElement("button");
   closeButton.classList.add("close-modal");
   closeButton.innerHTML = `<img src="images/modal_button_close.png" />`;
-  closeButton.addEventListener("click", () => {
+  const closeModal = () => {
     modalBackground.classList.remove("active");
     document.body.classList.remove("modal-open");
-  });
+  };
+  const openModal = () => {
+    modalBackground.classList.add("active");
+    document.body.classList.add("modal-open");
+  };
+  closeButton.addEventListener("click", closeModal);
   modalBackground.addEventListener("click", (event) => {
     if (event.target === modalBackground) {
-      modalBackground.classList.remove("active");
-      document.body.classList.remove("modal-open");
+      closeModal();
     }
   });
-  modal2.appendChild(closeButton);
-  modalBackground.appendChild(modal2);
+  modal.appendChild(closeButton);
+  modal.appendChild(modalContent);
+  modalBackground.appendChild(modal);
   document.body.appendChild(modalBackground);
   return {
-    show: () => {
-      modalBackground.classList.add("active");
-      document.body.classList.add("modal-open");
-    },
-    hide: () => {
-      modalBackground.classList.remove("active");
-      document.body.classList.remove("modal-open");
-    },
+    show: openModal,
+    hide: closeModal,
     setContent: (content) => {
-      modal2.innerHTML = content;
-      modal2.prepend(closeButton);
+      modalContent.innerHTML = content;
     }
   };
 };
-const modal = createModal();
-const MovieItem = ({ title, voteAverage, posterPath }) => {
+const movieDetailModal = createModal();
+const setMovieDetailModalStarRate = (starRate, movieId) => {
+  const $myStarRateContent = document.querySelector(".my-rate-content");
+  if ($myStarRateContent === null) return;
+  $myStarRateContent.innerHTML = `${Array.from({
+    length: Math.floor(starRate / 2)
+  }).map(
+    (_, i) => `<img src="images/star_filled.png" class="star" data-index="${i}" data-movie-id="${movieId}" />`
+  ).join("\n")}
+      ${Array.from({ length: 5 - Math.floor(starRate / 2) }).map(
+    (_, i) => `<img src="images/star_empty.png" class="star" data-index="${i + Math.floor(starRate / 2)}" data-movie-id="${movieId}"/>`
+  ).join("\n")}`;
+};
+const initializeMovieDetailModalEvent = () => {
+  const $myStarRateContainer = document.querySelector(".my-rate-content");
+  $myStarRateContainer == null ? void 0 : $myStarRateContainer.addEventListener("click", (e) => {
+    if (e.target === null) return;
+    const movieId = Number(e.target.dataset.movieId);
+    const starRate = 2 * (Number(e.target.dataset.index) + 1);
+    if (movieId !== void 0 && starRate !== void 0) {
+      setMovieStarRate(movieId, starRate);
+    }
+    setMovieDetailModalStarRate(starRate, movieId);
+  });
+};
+(() => {
+  movieDetailModal.setContent(`
+        <div class="modal-container">
+          <div class="modal-image">
+            <img src="" alt="" />
+          </div>
+          <div class="modal-description">
+            <h2 class="movie-detail-modal-title"></h2>
+            <p class="category">
+            </p>
+            <p class="rate">
+              <span>평균</span>
+              <img src="images/star_filled.png" class="star" />
+              <span class="movie-detail-modal-vote-average"></span>
+            </p>
+            </p>
+            <hr />
+            <div class="my-rate-container">
+            <h3>내 별점</h3>
+            <div style="display:flex; gap: 4px; align-items: center;">
+                <div class="my-rate-content"></div>
+                <span class="my-movie-star-rate"></span>
+            </div>
+            </div>
+            <hr />
+            <h3>줄거리</h3>
+            <span class="movie-detail-modal-overview"></span>
+          </div>
+        </div>
+      `);
+  initializeMovieDetailModalEvent();
+})();
+const setMovieDetailModalContent = ({
+  img,
+  title,
+  release_date,
+  genres,
+  voteAverage,
+  overview,
+  starRate
+}) => {
+  const $imageContainer = document.querySelector(".modal-image");
+  const $titleContainer = document.querySelector(".movie-detail-modal-title");
+  const $categoryContainer = document.querySelector(".category");
+  const $voteAverageContainer = document.querySelector(
+    ".movie-detail-modal-vote-average"
+  );
+  const $overViewContainer = document.querySelector(
+    ".movie-detail-modal-overview"
+  );
+  const $starRateTextContainer = document.querySelector(".my-movie-star-rate");
+  if (!$imageContainer || !$titleContainer || !$categoryContainer || !$voteAverageContainer || !$overViewContainer || !$starRateTextContainer)
+    return;
+  $imageContainer.innerHTML = `<img src="${img.src}" alt="${title}" />`;
+  $titleContainer.innerHTML = title;
+  $categoryContainer.innerHTML = `${release_date.split("-")[0]} · ${genres.map(({ name }) => name).join(", ")}`;
+  $voteAverageContainer.innerHTML = `${voteAverage.toFixed(1)}`;
+  $overViewContainer.innerHTML = overview;
+  $starRateTextContainer.innerHTML = `${getStarRateMessage(
+    starRate
+  )} (${starRate}/10)`;
+};
+const MovieItem = ({ title, voteAverage, posterPath, id }) => {
   const movieItem = document.createElement("li");
   movieItem.classList.add("movie-item");
   movieItem.innerHTML = `
@@ -249,28 +399,28 @@ const MovieItem = ({ title, voteAverage, posterPath }) => {
         <img class="thumbnail" src="${img.src}" alt="${title}" />
         <div class="item-desc">
           <p class="rate">
-            <img src="images/star_empty.png" class="star" /><span>${voteAverage}</span>
+            <img src="images/star_empty.png" class="star" /><span>${voteAverage.toFixed(
+      1
+    )}</span>
           </p>
           <strong class="movie-title">${title}</strong>
         </div>
       </div>
     `;
-    const openModal = () => {
-      modal.setContent(`
-        <div class="modal-container">
-          <div class="modal-image">
-            <img src="${img.src}" alt="${title}" />
-          </div>
-          <div class="modal-description">
-            <h2>${title}</h2>
-            <p class="rate">
-              <img src="images/star_filled.png" class="star" />
-              <span>${voteAverage}</span>
-            </p>
-          </div>
-        </div>
-      `);
-      modal.show();
+    const openModal = async () => {
+      const { genres, overview, release_date } = await fetchDetailMovie(id);
+      const myStarRate = getStarRateByMovieId(id);
+      setMovieDetailModalContent({
+        img,
+        genres,
+        overview,
+        release_date,
+        title,
+        voteAverage,
+        starRate: myStarRate
+      });
+      setMovieDetailModalStarRate(myStarRate, id);
+      movieDetailModal.show();
     };
     (_a = movieItem.querySelector(".thumbnail")) == null ? void 0 : _a.addEventListener("click", openModal);
     (_b = movieItem.querySelector(".movie-title")) == null ? void 0 : _b.addEventListener("click", openModal);
@@ -287,7 +437,8 @@ const MovieList = ({ movieItems = [] }) => {
       const $movieItem = MovieItem({
         title: movie.title,
         voteAverage: movie.voteAverage,
-        posterPath: movie.posterPath
+        posterPath: movie.posterPath,
+        id: movie.id
       });
       $ul.appendChild($movieItem);
     });
@@ -388,7 +539,17 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
   const $container = document.querySelector(".container");
   if (!$container) return;
-  window.addEventListener("scroll", async () => {
+  const throttle = (func, delay) => {
+    let timeoutId = null;
+    return (...args) => {
+      if (timeoutId) return;
+      timeoutId = setTimeout(() => {
+        func(...args);
+        timeoutId = null;
+      }, delay);
+    };
+  };
+  const handleScroll = async () => {
     const { scrollHeight, scrollTop, clientHeight } = document.documentElement;
     if (scrollHeight - scrollTop - clientHeight < 10) {
       const mode = movieState.mode;
@@ -406,5 +567,6 @@ document.addEventListener("DOMContentLoaded", async () => {
       }
       renderMovieContainer();
     }
-  });
+  };
+  window.addEventListener("scroll", throttle(handleScroll, 300));
 });

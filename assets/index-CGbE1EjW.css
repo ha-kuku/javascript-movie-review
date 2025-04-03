@@ -425,7 +425,7 @@ footer.footer p:not(:last-child) {
   }
 
   .search-wrapper {
-    width: 60%;
+    width: 100%;
   }
 }
 
@@ -592,7 +592,7 @@ p.rate > span {
   --color-242a32: #242a32;
 }
 
-/* modal.css */
+/* 기존 스타일 유지 */
 
 body.modal-open {
   overflow: hidden;
@@ -604,13 +604,13 @@ body.modal-open {
   left: 0;
   width: 100%;
   height: 100%;
-  background-color: rgba(0, 0, 0, 0.5); /* 반투명 배경을 위해 설정 */
-  backdrop-filter: blur(10px); /* 블러 효과 적용 */
+  background-color: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(10px);
   display: flex;
   justify-content: center;
   align-items: center;
   z-index: 10;
-  visibility: hidden; /* 모달이 기본적으로 보이지 않도록 설정 */
+  visibility: hidden;
   opacity: 0;
   transition: opacity 0.3s ease, visibility 0.3s ease;
 }
@@ -634,8 +634,6 @@ body.modal-open {
 
 .close-modal {
   position: absolute;
-  margin: 0;
-  padding: 0;
   top: 24px;
   right: 24px;
   background: none;
@@ -645,8 +643,11 @@ body.modal-open {
   cursor: pointer;
 }
 
+/* 기본적으로 flex 적용 */
+
 .modal-container {
   display: flex;
+  gap: 16px;
 }
 
 .modal-image img {
@@ -657,7 +658,6 @@ body.modal-open {
 .modal-description {
   width: 100%;
   padding: 8px;
-  margin-left: 16px;
   line-height: 1.6rem;
 }
 
@@ -675,16 +675,43 @@ body.modal-open {
   margin: 0 0 8px;
 }
 
+.modal-description h3 {
+  font-size: 1.2rem;
+  margin: 0 0 8px;
+}
+
 .detail {
   max-height: 430px;
   overflow-y: auto;
 }
+
+.my-rate-container {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  align-items: flex-start;
+  margin: 16px 0;
+}
+
+.my-rate-content {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.my-rate-content span {
+  text-align: center;
+}
+
+/* 1220px 이하일 때 modal의 최대 크기 조정 */
 
 @media (max-width: 1220px) {
   .modal {
     max-width: 100%;
   }
 }
+
+/* 768px 이하일 때 flex 대신 block 배치 */
 
 @media (max-width: 768px) {
   .modal-background {
@@ -698,6 +725,26 @@ body.modal-open {
     position: fixed;
     margin: 0;
   }
+
+  .modal-container {
+    display: block;
+  }
+
+  .modal-image {
+    text-align: center;
+    margin-bottom: 16px;
+  }
+
+  .modal-image img {
+    width: 80%;
+    max-width: 300px;
+  }
+
+  .modal-description {
+    width: 100%;
+    margin-left: 0;
+    text-align: center;
+  }
 }
 
 @media (max-width: 600px) {
@@ -705,5 +752,9 @@ body.modal-open {
     width: 100%;
     height: auto;
     max-width: 100%;
+  }
+
+  .modal-image {
+    display: none;
   }
 }
